@@ -1,0 +1,33 @@
+# variables:
+# - PUSH_IMAGE: Тег, куда будет сохраняться созданный образ. По умолчанию: ${IMAGE}:${IMAGE_TAG}
+# - DOCKERFILE: Позволяет указать путь к Dockerfile, из которого надо собрать образ. По умолчанию: Dockerfile
+
+.prepare-environment: &prepare-environment
+  - echo -e "section_start:`date +%s`:prepare_environment[collapsed=true]\r\e[0KPreparing environment"
+  - uname -a
+  - docker version
+  - |
+    if [ -z "$PUSH_IMAGE" ]; then PUSH_IMAGE=${IMAGE}:${IMAGE_TAG}; fi
+    if [ -z "$DOCKERFILE" ]; then DOCKERFILE=Dockerfile; fi
+    FROM=`eval "echo $FROM"`
+    PUSH_IMAGE=`eval "echo $PUSH_IMAGE"`
+    DOCKERFILE=`eval "echo $DOCKERFILE"`
+  - echo -e "section_end:`date +%s`:prepare_environment\r\e[0K"
+  - |
+    echo -e "\e[94mPush to image: $PUSH_IMAGE"
+    echo -e "\e[94mUse Dockerfile: $DOCKERFILE"
+
+.build:
+  stage: build
+  only:
+    - tags
+  tags:
+    - shell
+    - internet
+  script:
+    - *prepare-environment
+    - echo $REGISTRY_PASSWORD | docker login -u $REGISTRY_USER --password-stdin $REGISTRY
+    - echo -e "section_start:`date +%s`:docker_buildx[collapsed=true]\r\e[0KBuild docker image"
+    - docker buildx build --pull --platform=linux/amd64 --build-arg FROM_IMAGE=$FROM_IMAGE -f $DOCKERFILE -t $PUSH_IMAGE --push .
+    - echo -e "section_end:`date +%s`:docker_buildx\r\e[0K"
+    - docker logout $REGISTRY

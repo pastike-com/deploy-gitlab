@@ -1,0 +1,4 @@
+include:
+  - 'https://raw.githubusercontent.com/pastike-com/deploy-gitlab/main/tpl.common.yaml'
+  - 'https://raw.githubusercontent.com/pastike-com/deploy-gitlab/main/tpl.build.yaml'
+  - 'https://raw.githubusercontent.com/pastike-com/deploy-gitlab/main/tpl.deploy.k8s.yaml'

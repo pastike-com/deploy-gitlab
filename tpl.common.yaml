@@ -1,0 +1,34 @@
+# variables:
+# - SERVICE_NAME: Имя сервиса. По умолчанию: имя проекта GitLab ($CI_PROJECT_NAME)
+# - REGISTRY: Хост с registry. По умолчанию пусто.
+# - REGISTRY_NAMESPACE: Пространство имен в registry, в котором хранятся образы проекта. По умолчанию: `pastikecom`
+# - IMAGE: полный путь к docker-образу проекта. По умолчанию: собирается автоматически
+# - IMAGE_TAG: тег docker-образа проекта. По умолчанию: собирается автоматически
+
+default:
+  before_script:
+    - echo -e "section_start:`date +%s`:prepare_variables[collapsed=true]\r\e[0KPreparing common variables"
+    - if [ -z "$SERVICE_NAME" ]; then SERVICE_NAME="$CI_PROJECT_NAME"; fi
+    - SERVICE_NAME=`eval "echo $SERVICE_NAME"`
+    - |
+      if [ -z "$REGISTRY" ]; then REGISTRY=""; fi
+      if [ -z "$REGISTRY_NAMESPACE" ]; then REGISTRY_NAMESPACE="pastikecom"; fi
+      if [ -n "${CI_BUILD_TAG}" ]
+      then
+        if [ -z "$REGISTRY" ]
+        then
+          if [ -z "$IMAGE" ]; then IMAGE="$REGISTRY_NAMESPACE/$SERVICE_NAME"; fi
+        else
+          if [ -z "$IMAGE" ]; then IMAGE="$REGISTRY/$REGISTRY_NAMESPACE/$SERVICE_NAME"; fi
+        fi
+        if [ -z "$IMAGE_TAG" ]; then IMAGE_TAG="$CI_COMMIT_TAG"; fi
+      fi
+      export IMAGE="$IMAGE"
+      export IMAGE_TAG="$IMAGE_TAG"
+    - echo -e "section_end:`date +%s`:prepare_variables\r\e[0K"
+    - |
+      echo -e "\e[94mSERVICE_NAME: $SERVICE_NAME"
+      echo -e "\e[94mREGISTRY: $REGISTRY"
+      echo -e "\e[94mREGISTRY_NAMESPACE: $REGISTRY_NAMESPACE"
+      echo -e "\e[94mIMAGE: $IMAGE"
+      echo -e "\e[94mIMAGE_TAG: $IMAGE_TAG"
