@@ -1,0 +1,50 @@
+# variables:
+# - VALUES_FILE: Путь к файлу values.yaml. По умолчанию : `values.yaml`
+# - CHART_NAME: Используемый helm-chart. По умолчанию: `pastike-com/base`
+# - CHART_VERSION: Версия helm-chart. По умолчанию: `0.1.0`
+# - DEPLOYMENT_NAME: Имя релиза (приложения в группе сервиса). По умолчанию : значение переменной SERVICE_NAME
+# - DEPLOY_NAMESPACE: Пространство, в которое происходит деплой. По умолчанию: `pastike-com`
+# - DEPLOY_TOKEN: Токен приложения для деплоя в k8s в base64. Должен быть указан в переменных GitLab проекта
+
+.prepare-environment: &prepare-environment
+  - echo -e "section_start:`date +%s`:prepare_environment[collapsed=true]\r\e[0KPreparing environment"
+  - uname -a
+  - |
+    if [ -z "$DEPLOY_TOKEN" ]
+    then
+      echo -e "\e[41mНе указан токен для деплоя в k8s (DEPLOY_TOKEN). Проверьте, что переменная указана в настройках проекта в GitLab."
+      echo -e "\e[0K"
+      exit 1
+    fi
+  - echo ${DEPLOY_TOKEN} | base64 -d > ~/.kube/config
+  - kubectl version --client=true
+  - kubectl config get-contexts
+  - helm version
+  - helm repo update
+  - |
+    if [ -z "$CHART_NAME" ]; then CHART_NAME="pastike-com/base"; fi
+    if [ -z "$CHART_VERSION" ]; then CHART_VERSION="0.1.0"; fi
+    if [ -z "$DEPLOYMENT_NAME" ]; then DEPLOYMENT_NAME=$SERVICE_NAME; fi
+    if [ -z "$DEPLOY_NAMESPACE" ]; then DEPLOY_NAMESPACE="pastike-com"; fi
+    CHART_VERSION=`eval "echo $CHART_VERSION"`
+    DEPLOY_TOKEN=$(echo ${DEPLOY_TOKEN} | base64 -d)
+    export DEPLOYMENT_NAME="$DEPLOYMENT_NAME"
+    export DEPLOY_NAMESPACE="$DEPLOY_NAMESPACE"
+  - if [ -z "$VALUES_FILE" ]; then VALUES_FILE="values.yaml"; fi
+  - envsubst < $VALUES_FILE > values.release.yml
+  - echo -e "section_end:`date +%s`:prepare_environment\r\e[0K"
+  - |
+    echo -e "\e[94mChart name: $CHART_NAME"
+    echo -e "\e[94mChart version: $CHART_VERSION"
+    echo -e "\e[94mNamespace: $DEPLOY_NAMESPACE"
+    echo -e "\e[94mDeployment name (app name of service group): $DEPLOYMENT_NAME"
+
+.deploy:k8s:
+  stage: deploy
+  only:
+    - tags
+  tags:
+    - k8s
+  script:
+    - *prepare-environment
+    - helm upgrade -f values.release.yml "$DEPLOYMENT_NAME" "$CHART_NAME" --version "$CHART_VERSION" --namespace "$DEPLOY_NAMESPACE" --install
